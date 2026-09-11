@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Test AI - Strategic Full-screen</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-purple: #560591;
+            --bg-color: #fcfcfd;
+            --sidebar-w: 260px;
+            --instr-w: 320px;
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background-color: var(--bg-color);
+            display: flex; overflow: hidden;
+        }
+
+        /* --- 1. SIDEBAR --- */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: #fff; border-right: 1px solid #f0f0f0;
+            display: flex; flex-direction: column; padding: 30px 20px;
+            box-sizing: border-box; flex-shrink: 0; z-index: 10;
+        }
+
+        .logo {
+            font-size: 22px; font-weight: 800; color: var(--primary-purple);
+            margin-bottom: 40px; display: flex; align-items: center; gap: 10px;
+        }
+
+        .new-chat-btn {
+            background: var(--primary-purple); color: white;
+            padding: 14px; border-radius: 12px; border: none;
+            cursor: pointer; font-weight: 600; font-size: 14px;
+            display: flex; align-items: center; gap: 10px;
+            justify-content: center; transition: 0.3s;
+        }
+        .new-chat-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(86, 5, 145, 0.2); }
+
+        .history-label { font-size: 11px; font-weight: 800; color: #b0b0b0; margin: 25px 0 10px 5px; }
+        #historyList { overflow-y: auto; flex-grow: 1; }
+        .history-item {
+            padding: 10px; font-size: 13px; color: #555; cursor: pointer;
+            border-radius: 8px; margin-bottom: 4px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .history-item:hover { background: #f3ebff; color: var(--primary-purple); }
+
+        /* --- 2. MAIN CONTENT --- */
+        .main-content {
+            flex-grow: 1; display: flex; flex-direction: column;
+            position: relative; height: 100vh; background: #fff;
+        }
+
+        .chat-scroll-area {
+            flex-grow: 1; overflow-y: auto; display: flex;
+            flex-direction: column; align-items: center; padding: 40px 20px;
+            scroll-behavior: smooth;
+        }
+
+        .hero { margin-top: 12vh; text-align: center; max-width: 600px; }
+        .orb {
+            width: 90px; height: 90px; border-radius: 50%; margin: 0 auto 30px;
+            background: radial-gradient(circle at 30% 30%, #fff, #c89dff 60%, #560591 100%);
+            box-shadow: 0 20px 50px rgba(86, 5, 145, 0.2); animation: pulse 3s infinite;
+        }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        #chat-display { width: 100%; max-width: 800px; display: none; flex-direction: column; gap: 24px; padding-bottom: 120px; }
+        .msg { padding: 18px 24px; border-radius: 18px; font-size: 15px; max-width: 85%; line-height: 1.6; animation: fadeIn 0.3s ease; white-space: pre-wrap; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .user-msg { align-self: flex-end; background: #f3ebff; color: var(--primary-purple); font-weight: 500; }
+        .ai-msg { align-self: flex-start; background: #fff; border: 1px solid #efefef; box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
+        .error-msg { background: #fff1f0 !important; border: 1px solid #ffa39e !important; color: #cf1322 !important; font-weight: bold; }
+
+        /* --- INPUT AREA --- */
+        .input-area { padding: 20px 40px 40px; background: #fff; display: flex; justify-content: center; z-index: 5; }
+        .input-container { width: 100%; max-width: 800px; background: #fff; border-radius: 24px; padding: 12px 20px; border: 1px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .input-row { display: flex; align-items: center; gap: 15px; }
+        input { flex-grow: 1; border: none; font-size: 16px; outline: none; background: transparent; height: 40px; }
+        .send-btn { background: var(--primary-purple); color: white; width: 42px; height: 42px; border-radius: 12px; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
+        .send-btn:hover { transform: scale(1.05); }
+
+        .loader { display: none; font-size: 11px; color: var(--primary-purple); margin-bottom: 8px; font-weight: bold; }
+
+        /* --- 3. 3D INSTRUCTIONS --- */
+        .instructions { width: var(--instr-w); background: #fdfdff; border-left: 1px solid #f0f0f0; padding: 40px 24px; flex-shrink: 0; perspective: 1000px; transition: var(--transition); }
+        .card-3d { background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid #f0f0f0; transition: all 0.5s; cursor: default; transform-style: preserve-3d; }
+        .card-3d:hover { transform: translateY(-10px) rotateX(8deg) rotateY(-8deg); box-shadow: 15px 20px 40px rgba(86, 5, 145, 0.12); border-color: var(--primary-purple); }
+    </style>
+</head>
+<body id="mainBody">
+
+    <div class="sidebar">
+        <div class="logo"><i class="fa-solid fa-wand-magic-sparkles"></i> Central Test</div>
+        <button class="new-chat-btn" onclick="window.location.reload()"><i class="fa-solid fa-plus"></i> Шинэ чат эхлэх</button>
+        <div class="history-label">ЧАТНЫ ТҮҮХ</div>
+        <div id="historyList"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="chat-scroll-area" id="scrollArea">
+            <div id="hero" class="hero">
+                <div class="orb"></div>
+                <h1>Central Test AI <span>Зөвлөх</span></h1>
+                <p style="color: #888; margin-top: 15px;">61 ур чадварын шинжилгээнд суурилсан стратеги туслах</p>
+            </div>
+            <div id="chat-display"></div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div id="loading" class="loader"><i class="fa-solid fa-circle-notch fa-spin"></i> Шинжилж байна...</div>
+                <div class="input-row">
+                    <i class="fa-solid fa-plus" style="color:#ccc;"></i>
+                    <input type="text" id="userInput" placeholder="Асуултаа энд бичнэ үү..." onkeypress="if(event.key === 'Enter') askAI()">
+                    <button id="sendBtn" class="send-btn" onclick="askAI()"><i class="fa-solid fa-arrow-up"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions" id="instrPanel">
+        <div style="font-size:11px; font-weight:800; color:#ccc; margin-bottom:30px; letter-spacing:1px;">АШИГЛАХ ЗААВАР</div>
+
+        <div class="card-3d">
+            <i class="fa-solid fa-lightbulb" style="color:var(--primary-purple); font-size:20px; margin-bottom:12px; display:block;"></i>
+            <h4>Асуулт асуух</h4>
+            <p style="font-size:12px; color:#777; line-height:1.5;">Ур чадварын талаар тодорхой асуулт бичиж 'Enter' дарна уу.</p>
+        </div>
+
+        <div class="card-3d">
+            <i class="fa-solid fa-bolt" style="color:var(--primary-purple); font-size:20px; margin-bottom:12px; display:block;"></i>
+            <h4>Шуурхай хариу</h4>
+            <p style="font-size:12px; color:#777; line-height:1.5;">Систем графикт суурилсан тул маш оновчтой товч хариулт өгнө.</p>
+        </div>
+
+        <div class="card-3d">
+            <i class="fa-solid fa-shield-halved" style="color:var(--primary-purple); font-size:20px; margin-bottom:12px; display:block;"></i>
+            <h4>Мэргэжлийн зөвлөгөө</h4>
+            <p style="font-size:12px; color:#777; line-height:1.5;">Бүх хариулт 61 ур чадварын мэдээллийн санд тулгуурласан.</p>
+        </div>
+    </div>
+
+<script>
+    // ─── Тохиргоо ───
+    const API_URL = 'http://localhost:8000/ask';
+    const API_KEY = 'f346c7a43c19d1cbf2935eb7652dc2924d67a5349dfdce7aa356f3c075df80a8';
+
+    // ─── GraphRAG системийн мөрүүдийг цэвэрлэх ───
+    function cleanAnswer(text) {
+        if (!text) return '';
+        return text
+            .replace(/^SUCCESS:.*\n?/gim, '')
+            .replace(/^INFO:.*\n?/gim, '')
+            .replace(/^WARNING:.*\n?/gim, '')
+            .replace(/^ERROR:.*\n?/gim, '')
+            .replace(/^Answer:\s*/im, '')
+            .replace(/\[Data:[^\]]*\]/g, '')
+            .trim();
+    }
+
+    // ─── Түүх ───
+    let chatHistory = JSON.parse(localStorage.getItem('graphrag_history')) || [];
+    window.onload = renderHistory;
+
+    async function askAI() {
+        const inputField = document.getElementById('userInput');
+        const prompt = inputField.value.trim();
+        const display = document.getElementById('chat-display');
+        const hero = document.getElementById('hero');
+        const loader = document.getElementById('loading');
+        const sendBtn = document.getElementById('sendBtn');
+
+        if (!prompt) return;
+
+        hero.style.display = 'none';
+        display.style.display = 'flex';
+
+        appendMessage('user', prompt);
+        inputField.value = '';
+        loader.style.display = 'block';
+        sendBtn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': API_KEY
+                },
+                body: JSON.stringify({ prompt: prompt, method: 'local' })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                let errorMsg = data.error || 'Алдаа гарлаа.';
+                if (errorMsg.includes('503') || errorMsg.includes('high demand') || errorMsg.includes('UNAVAILABLE')) {
+                    errorMsg = '⚠️ AI сервер ачаалалтай байна. Түр хүлээгээд дахин оролдоно уу.';
+                }
+                appendMessage('ai', errorMsg, true);
+            } else {
+                const raw = data.answer || 'Мэдээлэл олдсонгүй.';
+                const answer = cleanAnswer(raw);
+                appendMessage('ai', answer || raw);
+                saveHistory(prompt, answer || raw);
+            }
+        } catch (err) {
+            appendMessage('ai', '❌ Backend сервертэй холбогдож чадсангүй. Сервер асаалттай байгаа эсэхийг шалгана уу.', true);
+            console.error(err);
+        } finally {
+            loader.style.display = 'none';
+            sendBtn.disabled = false;
+            inputField.focus();
+        }
+    }
+
+    function renderMarkdown(text) {
+        // XSS хамгаалалт: HTML тэгүүдийг escape хийнэ
+        text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // **bold** → <strong>bold</strong>
+        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Мөр эхэлж байгаа - жагсаалт (- эсвэл •)
+        text = text.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
+        text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        // Шинэ мөрийг <br> болгоно
+        text = text.replace(/\n/g, '<br>');
+        return text;
+    }
+
+    function appendMessage(role, text, isError = false) {
+        const display = document.getElementById('chat-display');
+        const div = document.createElement('div');
+        div.className = `msg ${role === 'user' ? 'user-msg' : 'ai-msg'} ${isError ? 'error-msg' : ''}`;
+        if (role === 'ai' && !isError) {
+            div.innerHTML = renderMarkdown(text);
+        } else {
+            div.textContent = text;
+        }
+        display.appendChild(div);
+        const scrollArea = document.getElementById('scrollArea');
+        setTimeout(() => { scrollArea.scrollTop = scrollArea.scrollHeight; }, 50);
+    }
+
+    function saveHistory(q, a) {
+        const item = { id: Date.now(), question: q, answer: a };
+        chatHistory.unshift(item);
+        if (chatHistory.length > 15) chatHistory.pop();
+        localStorage.setItem('graphrag_history', JSON.stringify(chatHistory));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        if (!list) return;
+        list.innerHTML = chatHistory.map(item => `
+            <div class="history-item" onclick="loadChat(${item.id})">
+                ${item.question.substring(0, 40)}...
+            </div>
+        `).join('');
+    }
+
+    function loadChat(id) {
+        const chat = chatHistory.find(c => c.id === id);
+        if (!chat) return;
+        const display = document.getElementById('chat-display');
+        document.getElementById('hero').style.display = 'none';
+        display.style.display = 'flex';
+        display.innerHTML = '';
+        appendMessage('user', chat.question);
+        appendMessage('ai', chat.answer);
+    }
+</script>
+</body>
+</html>

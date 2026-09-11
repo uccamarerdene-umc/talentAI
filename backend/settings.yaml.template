@@ -1,0 +1,103 @@
+completion_models:
+  default_completion_model:
+    model_provider: openai
+    model: gemini-3.5-flash-lite
+    auth_method: api_key
+    api_key: ${GEMINI_API_KEY}
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai
+    max_tokens: 500
+    temperature: 0.0
+    request_timeout: 60
+    requests_per_minute: 5
+    batch_size: 1
+    retry:
+      type: exponential_backoff
+      max_retries: 3
+
+embedding_models:
+  default_embedding_model:
+    model_provider: openai
+    model: gemini-embedding-001
+    auth_method: api_key
+    api_key: ${GEMINI_API_KEY}
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai
+    retry:
+      type: exponential_backoff
+      max_retries: 3
+
+input:
+  type: file
+  file_type: text
+  base_dir: "input"
+  file_encoding: utf-8
+  file_pattern: ".*\\.txt"
+
+chunking:
+  type: tokens
+  size: 1200
+  overlap: 100
+  encoding_model: o200k_base
+
+storage:
+  type: file
+  base_dir: "output"
+
+reporting:
+  type: file
+  base_dir: "logs"
+
+cache:
+  type: file
+  base_dir: "cache"
+
+vector_store:
+  type: lancedb
+  db_uri: "output/lancedb"
+
+embed_text:
+  embedding_model_id: default_embedding_model
+
+extract_graph:
+  completion_model_id: default_completion_model
+  entity_types: [organization, person, geo, event]
+  max_gleanings: 1
+
+summarize_descriptions:
+  completion_model_id: default_completion_model
+  max_length: 500
+
+extract_graph_nlp:
+  text_analyzer:
+    extractor_type: regex_english
+
+cluster_graph:
+  max_cluster_size: 10
+
+extract_claims:
+  enabled: false
+  completion_model_id: default_completion_model
+  max_gleanings: 1
+
+community_reports:
+  completion_model_id: default_completion_model
+  max_length: 2000
+  max_input_length: 8000
+
+snapshots:
+  graphml: false
+  embeddings: false
+
+local_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
+
+global_search:
+  completion_model_id: default_completion_model
+
+drift_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
+
+basic_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
