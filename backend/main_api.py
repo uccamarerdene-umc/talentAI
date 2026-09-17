@@ -62,8 +62,11 @@ def get_local_search_engine():
             from graphrag_engine import build_local_search_engine  # type: ignore
             _search_engine = build_local_search_engine()
             logger.info("GraphRAG initialised.")
-        except Exception as exc:
-            logger.warning("GraphRAG unavailable: %s", exc)
+        except Exception:
+            logger.error(
+                "GraphRAG index unavailable — every request will fall back to "
+                "un-indexed Gemini answers until this is fixed.", exc_info=True,
+            )
             raise
     return _search_engine
 
@@ -80,6 +83,7 @@ class AgentState(BaseModel):
     excel_stats: Optional[str] = Field(default=None)
     detected_test_name: Optional[str] = Field(default=None)
     graphrag_context: Optional[str] = Field(default=None)
+    graphrag_used: bool = False
     raw_analysis: Optional[str] = Field(default=None)
     final_output: Optional[str] = Field(default=None)
     had_error: bool = False
@@ -466,8 +470,13 @@ def agent_router(state: AgentState) -> AgentState:
 async def agent_psychometric_expert(state: AgentState) -> AgentState:
     logger.info("[Agent 2] Processing (history=%d msgs)...", len(state.chat_history))
 
-    # GraphRAG — optional
+    # GraphRAG — local_search index-ийг ЗААВАЛ оролдоно. Алдаа гарвал (индекс
+    # байхгүй, embedding/completion дуудалт унасан гэх мэт) Gemini индексгүйгээр
+    # хариулдаг руу шилждэг тул уг алдааг ЯГ ЮУ ГЭДГИЙГ нь ERROR түвшинд бүрэн
+    # traceback-тай нь бүртгэнэ — эс тэгвэл индекс чимээгүйхэн алгасагдсаныг
+    # хэн ч анзаарахгүй өнгөрдөг (жишээ нь litellm.aembedding алдаа).
     graphrag_context = ""
+    graphrag_used = False
     try:
         prompt_lower = state.user_prompt.lower()
         follow_kw = ["тус", "дээрх", "төлөвлөгөө", "үүнээс", "дараагийн",
@@ -486,10 +495,23 @@ async def agent_psychometric_expert(state: AgentState) -> AgentState:
         result = await asyncio.to_thread(_run_graphrag_search, query)
         raw_ctx = result.response if hasattr(result, "response") else str(result)
         BAD = ["хангалттай байхгүй байна", "холбогдоно уу", "мэдээлэл одоогоор", "insufficient"]
-        if not any(p in raw_ctx for p in BAD):
+        if any(p in raw_ctx for p in BAD):
+            logger.info("[Agent 2] GraphRAG local_search ran but reported insufficient context.")
+        else:
             graphrag_context = raw_ctx
-    except Exception as exc:
-        logger.warning("[Agent 2] GraphRAG skip: %s", exc)
+            graphrag_used = True
+    except Exception:
+        logger.error(
+            "[Agent 2] GraphRAG local_search FAILED — Gemini will answer WITHOUT the "
+            "indexed knowledge base for this request (unindexed fallback).",
+            exc_info=True,
+        )
+
+    logger.info(
+        "[Agent 2] GraphRAG index %s (context_chars=%d)",
+        "USED" if graphrag_used else "BYPASSED",
+        len(graphrag_context),
+    )
 
     system_prompt = build_system_prompt(state, graphrag_context)
 
@@ -518,7 +540,8 @@ async def agent_psychometric_expert(state: AgentState) -> AgentState:
         had_error = True
 
     return state.model_copy(update={
-        "raw_analysis": raw_analysis, "graphrag_context": graphrag_context, "had_error": had_error,
+        "raw_analysis": raw_analysis, "graphrag_context": graphrag_context,
+        "graphrag_used": graphrag_used, "had_error": had_error,
     })
 
 
