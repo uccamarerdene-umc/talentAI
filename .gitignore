@@ -19,6 +19,7 @@ build/
 *.pid
 backend/centraltest.db
 backend/*.db
+centraltest.db
 
 # OS / IDE
 .DS_Store
