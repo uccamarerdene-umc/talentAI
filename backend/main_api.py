@@ -381,6 +381,19 @@ def build_system_prompt(state: AgentState, graphrag_context: str = "") -> str:
 #  GEMINI HELPERS (google-genai SDK)
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _warn_if_truncated(response, source: str) -> None:
+    """finish_reason=MAX_TOKENS үед хариулт дунд нь тасарсныг чимээгүй
+    өнгөрөхийн оронд логд бичнэ — эс тэгвэл "дутуу хариулт" гомдол ирэхэд
+    үүнийг Gemini өөрөө тасалсан эсэхийг мэдэх боломжгүй болдог."""
+    try:
+        candidates = getattr(response, "candidates", None) or []
+        finish_reason = str(getattr(candidates[0], "finish_reason", "")) if candidates else ""
+        if "MAX_TOKENS" in finish_reason:
+            logger.warning("[%s] Response TRUNCATED at max_output_tokens limit.", source)
+    except Exception:
+        pass
+
+
 async def gemini_chat(system_prompt: str, history: List[Dict], user_message: str) -> str:
     """
     google-genai SDK-р multi-turn chat дуудна.
@@ -407,7 +420,7 @@ async def gemini_chat(system_prompt: str, history: List[Dict], user_message: str
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         temperature=0.7,
-        max_output_tokens=2048,
+        max_output_tokens=8192,
     )
 
     response = await asyncio.to_thread(
@@ -416,6 +429,7 @@ async def gemini_chat(system_prompt: str, history: List[Dict], user_message: str
         contents=contents,
         config=config,
     )
+    _warn_if_truncated(response, "gemini_chat")
     return response.text or ""
 
 
@@ -425,7 +439,7 @@ async def gemini_simple(system_prompt: str, user_message: str) -> str:
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         temperature=0.5,
-        max_output_tokens=2048,
+        max_output_tokens=8192,
     )
     response = await asyncio.to_thread(
         client.models.generate_content,
@@ -433,6 +447,7 @@ async def gemini_simple(system_prompt: str, user_message: str) -> str:
         contents=user_message,
         config=config,
     )
+    _warn_if_truncated(response, "gemini_simple")
     return response.text or ""
 
 

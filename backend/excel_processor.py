@@ -94,13 +94,15 @@ def process_excel(file_bytes: bytes, filename: str, question: str) -> dict:
     if len(df) == 0:
         summary_parts.append("⚠ Өгөгдөл байхгүй (мөр тоо: 0)")
 
-    elif len(df) <= 30:
-        # Бүх өгөгдлийг харуулна
+    elif len(df) <= 200:
+        # Бүх өгөгдлийг харуулна (raw_data-тай ижил 200 мөрийн хязгаар — ажилтан
+        # бүрийн оноог LLM-д бодитоор дамжуулж, зөвхөн топ/бот 5-д ороогүй
+        # хүмүүсийн талаарх асуултад "мэдээлэл байхгүй" гэж хариулахаас сэргийлнэ).
         summary_parts.append("=== Бүх өгөгдөл ===")
         summary_parts.append(df.to_string(index=False))
 
     else:
-        # 30-аас дээш мөр: top/bottom + статистик
+        # 200-аас дээш мөр: бүх мөрийг prompt-д багтаах боломжгүй тул top/bottom + статистик
         if num_cols:
             df2 = df.copy()
             df2["__avg__"] = df2[num_cols].mean(axis=1).round(2)
